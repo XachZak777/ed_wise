@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 
 class GoogleSignInButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isLoading;
   final String text;
 
   const GoogleSignInButton({
     super.key,
-    required this.onPressed,
+    this.onPressed,
     this.isLoading = false,
     this.text = 'Continue with Google',
   });
@@ -19,7 +19,7 @@ class GoogleSignInButton extends StatelessWidget {
       width: double.infinity,
       height: 48,
       child: OutlinedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: (isLoading || onPressed == null) ? null : onPressed,
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: Colors.grey, width: 1),
           shape: RoundedRectangleBorder(

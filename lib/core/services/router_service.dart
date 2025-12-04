@@ -5,6 +5,10 @@ import '../../features/study_plans/screens/study_plans_screen.dart';
 import '../../features/ai_video/screens/ai_video_screen.dart';
 import '../../features/forum/screens/forum_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/certificates_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
+import '../../features/ai_agent/screens/ai_agent_screen.dart';
 import '../../shared/widgets/main_navigation.dart';
 
 class AppRouter {
@@ -39,8 +43,31 @@ class AppRouter {
             builder: (context, state) => const ForumScreen(),
           ),
           GoRoute(
+            path: 'ai-agent',
+            builder: (context, state) => const AiAgentScreen(),
+          ),
+          GoRoute(
             path: 'profile',
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) {
+                  final profile = state.uri.queryParameters['profile'];
+                  return EditProfileScreen(
+                    initialProfile: profile != null ? {} : null,
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'certificates',
+                builder: (context, state) => const CertificatesScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (context, state) => const SettingsScreen(),
           ),
         ],
       ),

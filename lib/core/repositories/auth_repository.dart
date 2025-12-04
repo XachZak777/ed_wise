@@ -1,33 +1,55 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/services/env_service.dart';
+import '../config/app_config.dart';
+import '../constants/app_constants.dart';
+import '../services/env_service.dart';
+import '../../features/auth/repositories/mock_auth_repository.dart';
 
-class AuthProvider {
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+abstract class AuthRepository {
+  static AuthRepository get instance {
+    // Always use Firebase Auth (no mock auth)
+    return FirebaseAuthRepository();
+  }
+
+  User? get currentUser;
+  Stream<User?> get authStateChanges;
+  Future<UserCredential?> signInWithEmail(String email, String password);
+  Future<UserCredential?> signUpWithEmail(String email, String password, String name);
+  Future<void> signOut();
+  Future<void> resetPassword(String email);
+  Future<UserCredential?> signInWithGoogle();
+  Future<Map<String, dynamic>?> getUserProfile(String uid);
+  Future<void> updateUserProfile(String uid, Map<String, dynamic> data);
+}
+
+class FirebaseAuthRepository implements AuthRepository {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: EnvService.googleSignInWebClientId,
   );
 
-  static User? get currentUser => _auth.currentUser;
+  @override
+  User? get currentUser => _auth.currentUser;
 
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
+  @override
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  static Future<UserCredential?> signInWithEmail(String email, String password) async {
+  @override
+  Future<UserCredential?> signInWithEmail(String email, String password) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
+      return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }
   }
 
-  static Future<UserCredential?> signUpWithEmail(
+  @override
+  Future<UserCredential?> signUpWithEmail(
     String email,
     String password,
     String name,
@@ -38,7 +60,6 @@ class AuthProvider {
         password: password,
       );
 
-      // Create user profile in Firestore
       if (credential.user != null) {
         await _createUserProfile(credential.user!, name, email);
       }
@@ -49,12 +70,14 @@ class AuthProvider {
     }
   }
 
-  static Future<void> signOut() async {
+  @override
+  Future<void> signOut() async {
     await _auth.signOut();
-    await signOutGoogle();
+    await _googleSignIn.signOut();
   }
 
-  static Future<void> resetPassword(String email) async {
+  @override
+  Future<void> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
@@ -62,29 +85,23 @@ class AuthProvider {
     }
   }
 
-  static Future<UserCredential?> signInWithGoogle() async {
+  @override
+  Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
-        // User cancelled the sign-in
         return null;
       }
 
-      // Obtain the auth details from the request
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Create a new credential
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Sign in to Firebase with the Google credential
       final userCredential = await _auth.signInWithCredential(credential);
 
-      // Create or update user profile in Firestore
       if (userCredential.user != null) {
         await _createOrUpdateUserProfile(
           userCredential.user!,
@@ -101,15 +118,39 @@ class AuthProvider {
     }
   }
 
-  static Future<void> signOutGoogle() async {
+  @override
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
     try {
-      await _googleSignIn.signOut();
+      final doc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(uid)
+          .get();
+      
+      if (doc.exists) {
+        return doc.data();
+      }
+      return null;
     } catch (e) {
-      throw Exception('Google sign-out failed: $e');
+      throw Exception('Failed to get user profile: $e');
     }
   }
 
-  static Future<void> _createUserProfile(User user, String name, String email) async {
+  @override
+  Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(uid)
+          .update({
+        ...data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update user profile: $e');
+    }
+  }
+
+  Future<void> _createUserProfile(User user, String name, String email) async {
     try {
       await _firestore.collection(AppConstants.usersCollection).doc(user.uid).set({
         'uid': user.uid,
@@ -133,20 +174,18 @@ class AuthProvider {
     }
   }
 
-  static Future<void> _createOrUpdateUserProfile(User user, String name, String email) async {
+  Future<void> _createOrUpdateUserProfile(User user, String name, String email) async {
     try {
       final docRef = _firestore.collection(AppConstants.usersCollection).doc(user.uid);
       final doc = await docRef.get();
       
       if (doc.exists) {
-        // Update existing profile
         await docRef.update({
           'name': name,
           'email': email,
           'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
-        // Create new profile
         await _createUserProfile(user, name, email);
       }
     } catch (e) {
@@ -154,37 +193,7 @@ class AuthProvider {
     }
   }
 
-  static Future<Map<String, dynamic>?> getUserProfile(String uid) async {
-    try {
-      final doc = await _firestore
-          .collection(AppConstants.usersCollection)
-          .doc(uid)
-          .get();
-      
-      if (doc.exists) {
-        return doc.data();
-      }
-      return null;
-    } catch (e) {
-      throw Exception('Failed to get user profile: $e');
-    }
-  }
-
-  static Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
-    try {
-      await _firestore
-          .collection(AppConstants.usersCollection)
-          .doc(uid)
-          .update({
-        ...data,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update user profile: $e');
-    }
-  }
-
-  static String _handleAuthException(FirebaseAuthException e) {
+  String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
         return 'No user found with this email address.';
@@ -207,3 +216,4 @@ class AuthProvider {
     }
   }
 }
+

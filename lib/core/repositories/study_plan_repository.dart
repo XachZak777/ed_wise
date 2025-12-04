@@ -1,38 +1,51 @@
-import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/constants/app_constants.dart';
-import '../models/study_plan.dart';
+import '../config/app_config.dart';
+import '../constants/app_constants.dart';
+import '../../features/study_plans/models/study_plan.dart';
+import '../../features/study_plans/repositories/mock_study_plan_repository.dart';
 
-class StudyPlanProvider {
+abstract class StudyPlanRepository {
+  static StudyPlanRepository get instance {
+    // Use mock data for presentation/demo
+    if (AppConfig.useMockStudyPlans) {
+      return MockStudyPlanRepository();
+    }
+    return FirebaseStudyPlanRepository();
+  }
+
+  Future<List<StudyPlan>> getStudyPlans(String userId);
+  Future<StudyPlan> createStudyPlan(String userId, String title, String description);
+  Future<void> updateStudyPlan(String planId, Map<String, dynamic> updates);
+  Future<void> deleteStudyPlan(String planId);
+  Future<void> addSubject(String planId, Subject subject);
+  Future<void> updateTaskStatus(String planId, String subjectId, String taskId, TaskStatus status);
+}
+
+class FirebaseStudyPlanRepository implements StudyPlanRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final StreamController<List<StudyPlan>> _studyPlansController = 
-      StreamController<List<StudyPlan>>.broadcast();
 
-  Stream<List<StudyPlan>> get studyPlansStream => _studyPlansController.stream;
-
-  Future<void> loadStudyPlans(String userId) async {
+  @override
+  Future<List<StudyPlan>> getStudyPlans(String userId) async {
     try {
-      _firestore
+      final snapshot = await _firestore
           .collection(AppConstants.studyPlansCollection)
           .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
-          .snapshots()
-          .listen((snapshot) {
-        final studyPlans = snapshot.docs
-            .map((doc) => StudyPlan.fromMap(doc.data(), doc.id))
-            .toList();
-        _studyPlansController.add(studyPlans);
-      });
+          .get();
+
+      return snapshot.docs
+          .map((doc) => StudyPlan.fromMap(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              ))
+          .toList();
     } catch (e) {
-      _studyPlansController.addError(e);
+      throw Exception('Failed to load study plans: $e');
     }
   }
 
-  Future<String> createStudyPlan(
-    String userId,
-    String title,
-    String description,
-  ) async {
+  @override
+  Future<StudyPlan> createStudyPlan(String userId, String title, String description) async {
     try {
       final studyPlan = StudyPlan(
         id: '',
@@ -52,12 +65,13 @@ class StudyPlanProvider {
           .collection(AppConstants.studyPlansCollection)
           .add(studyPlan.toMap());
 
-      return docRef.id;
+      return studyPlan.copyWith(id: docRef.id);
     } catch (e) {
       throw Exception('Failed to create study plan: $e');
     }
   }
 
+  @override
   Future<void> updateStudyPlan(String planId, Map<String, dynamic> updates) async {
     try {
       await _firestore
@@ -72,6 +86,7 @@ class StudyPlanProvider {
     }
   }
 
+  @override
   Future<void> deleteStudyPlan(String planId) async {
     try {
       await _firestore
@@ -83,7 +98,9 @@ class StudyPlanProvider {
     }
   }
 
+  @override
   Future<void> addSubject(String planId, Subject subject) async {
+    // Implementation similar to provider
     try {
       final planRef = _firestore
           .collection(AppConstants.studyPlansCollection)
@@ -115,101 +132,14 @@ class StudyPlanProvider {
     }
   }
 
-  Future<void> updateSubject(String planId, String subjectId, Subject updatedSubject) async {
-    try {
-      final planRef = _firestore
-          .collection(AppConstants.studyPlansCollection)
-          .doc(planId);
-
-      await _firestore.runTransaction((transaction) async {
-        final planDoc = await transaction.get(planRef);
-        if (!planDoc.exists) {
-          throw Exception('Study plan not found');
-        }
-
-        final planData = planDoc.data()!;
-        final subjects = List<Map<String, dynamic>>.from(planData['subjects'] ?? []);
-        
-        final subjectIndex = subjects.indexWhere((s) => s['id'] == subjectId);
-        if (subjectIndex == -1) {
-          throw Exception('Subject not found');
-        }
-
-        subjects[subjectIndex] = updatedSubject.toMap();
-
-        final totalTasks = subjects.fold<int>(
-          0,
-          (total, subject) => total + ((subject['totalTasks'] ?? 0) as int),
-        );
-
-        final completedTasks = subjects.fold<int>(
-          0,
-          (total, subject) => total + ((subject['completedTasks'] ?? 0) as int),
-        );
-
-        final progress = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
-
-        transaction.update(planRef, {
-          'subjects': subjects,
-          'totalTasks': totalTasks,
-          'completedTasks': completedTasks,
-          'progress': progress,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      });
-    } catch (e) {
-      throw Exception('Failed to update subject: $e');
-    }
-  }
-
-  Future<void> deleteSubject(String planId, String subjectId) async {
-    try {
-      final planRef = _firestore
-          .collection(AppConstants.studyPlansCollection)
-          .doc(planId);
-
-      await _firestore.runTransaction((transaction) async {
-        final planDoc = await transaction.get(planRef);
-        if (!planDoc.exists) {
-          throw Exception('Study plan not found');
-        }
-
-        final planData = planDoc.data()!;
-        final subjects = List<Map<String, dynamic>>.from(planData['subjects'] ?? []);
-        
-        subjects.removeWhere((s) => s['id'] == subjectId);
-
-        final totalTasks = subjects.fold<int>(
-          0,
-          (total, subject) => total + ((subject['totalTasks'] ?? 0) as int),
-        );
-
-        final completedTasks = subjects.fold<int>(
-          0,
-          (total, subject) => total + ((subject['completedTasks'] ?? 0) as int),
-        );
-
-        final progress = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
-
-        transaction.update(planRef, {
-          'subjects': subjects,
-          'totalTasks': totalTasks,
-          'completedTasks': completedTasks,
-          'progress': progress,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      });
-    } catch (e) {
-      throw Exception('Failed to delete subject: $e');
-    }
-  }
-
+  @override
   Future<void> updateTaskStatus(
     String planId,
     String subjectId,
     String taskId,
     TaskStatus status,
   ) async {
+    // Implementation similar to provider
     try {
       final planRef = _firestore
           .collection(AppConstants.studyPlansCollection)
@@ -274,8 +204,5 @@ class StudyPlanProvider {
       throw Exception('Failed to update task status: $e');
     }
   }
-
-  void dispose() {
-    _studyPlansController.close();
-  }
 }
+

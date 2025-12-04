@@ -191,6 +191,38 @@ class ForumComment {
     };
   }
 
+  ForumComment copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    String? userEmail,
+    String? userName,
+    String? content,
+    int? upvotes,
+    int? downvotes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<String>? upvotedBy,
+    List<String>? downvotedBy,
+    String? parentCommentId,
+  }) {
+    return ForumComment(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      userEmail: userEmail ?? this.userEmail,
+      userName: userName ?? this.userName,
+      content: content ?? this.content,
+      upvotes: upvotes ?? this.upvotes,
+      downvotes: downvotes ?? this.downvotes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      upvotedBy: upvotedBy ?? this.upvotedBy,
+      downvotedBy: downvotedBy ?? this.downvotedBy,
+      parentCommentId: parentCommentId ?? this.parentCommentId,
+    );
+  }
+
   int get score => upvotes - downvotes;
 }
 
