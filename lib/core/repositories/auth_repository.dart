@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../services/env_service.dart';
 
@@ -37,10 +38,17 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<UserCredential?> signInWithEmail(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      
+      // Ensure user profile exists in Firestore (create if missing)
+      if (credential.user != null) {
+        await _ensureUserProfileExists(credential.user!);
+      }
+      
+      return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }
@@ -188,6 +196,30 @@ class FirebaseAuthRepository implements AuthRepository {
       }
     } catch (e) {
       throw Exception('Failed to create or update user profile: $e');
+    }
+  }
+
+  /// Ensures user profile exists in Firestore. Creates it if missing.
+  /// This ensures that user data persists across sessions.
+  Future<void> _ensureUserProfileExists(User user) async {
+    try {
+      final docRef = _firestore.collection(AppConstants.usersCollection).doc(user.uid);
+      final doc = await docRef.get();
+      
+      if (!doc.exists) {
+        // Profile doesn't exist, create it with available information
+        final name = user.displayName ?? user.email?.split('@').first ?? 'User';
+        final email = user.email ?? '';
+        await _createUserProfile(user, name, email);
+      } else {
+        // Profile exists, update last accessed time
+        await docRef.update({
+          'lastAccessedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      // Don't throw - profile check shouldn't break sign-in
+      debugPrint('Warning: Failed to ensure user profile exists: $e');
     }
   }
 

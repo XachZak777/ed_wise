@@ -213,25 +213,42 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
   void _showEditStudyPlanDialog(StudyPlan plan) {
     showDialog(
       context: context,
-      builder: (context) => EditStudyPlanDialog(
-        studyPlan: plan,
-        onSave: (updates) {
-          context.read<StudyPlanBloc>().add(
-                StudyPlanUpdateRequested(
-                  planId: plan.id,
-                  updates: updates,
+      builder: (dialogContext) => BlocListener<StudyPlanBloc, StudyPlanState>(
+        listener: (context, state) {
+          if (state is StudyPlanLoaded) {
+            // Update completed, close dialog and show success message
+            if (mounted) {
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Study plan updated successfully'),
+                  backgroundColor: AppTheme.successColor,
                 ),
               );
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Study plan updated successfully'),
-                backgroundColor: AppTheme.successColor,
-              ),
-            );
+            }
+          } else if (state is StudyPlanError) {
+            // Error occurred
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to update study plan: ${state.message}'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
           }
         },
+        child: EditStudyPlanDialog(
+          studyPlan: plan,
+          onSave: (updates) {
+            context.read<StudyPlanBloc>().add(
+                  StudyPlanUpdateRequested(
+                    planId: plan.id,
+                    updates: updates,
+                  ),
+                );
+          },
+        ),
       ),
     );
   }

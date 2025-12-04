@@ -387,29 +387,46 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   void _showEditDialog() {
     showDialog(
       context: context,
-      builder: (context) => EditPostDialog(
-        post: _currentPost,
-        categories: _categories,
-        onSave: (title, content, category, tags) {
-          context.read<ForumBloc>().add(
-                ForumPostEditRequested(
-                  postId: _currentPost.id,
-                  title: title,
-                  content: content,
-                  category: category,
-                  tags: tags,
+      builder: (dialogContext) => BlocListener<ForumBloc, ForumState>(
+        listener: (context, state) {
+          if (state is ForumLoaded) {
+            // Update completed, close dialog and show success message
+            if (mounted) {
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Post updated successfully'),
+                  backgroundColor: AppTheme.successColor,
                 ),
               );
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Post updated successfully'),
-                backgroundColor: AppTheme.successColor,
-              ),
-            );
+            }
+          } else if (state is ForumError) {
+            // Error occurred
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to update post: ${state.message}'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
           }
         },
+        child: EditPostDialog(
+          post: _currentPost,
+          categories: _categories,
+          onSave: (title, content, category, tags) {
+            context.read<ForumBloc>().add(
+                  ForumPostEditRequested(
+                    postId: _currentPost.id,
+                    title: title,
+                    content: content,
+                    category: category,
+                    tags: tags,
+                  ),
+                );
+          },
+        ),
       ),
     );
   }
