@@ -8,11 +8,12 @@ void main() {
 
   group('AppRouter', () {
     test('has expected initial location', () {
-      expect(AppRouter.router.initialLocation, '/login');
+      expect(AppRouter.router.configuration.initialLocation, '/login');
     });
 
     test('contains core top-level routes', () {
-      final routes = AppRouter.router.routes.whereType<GoRoute>().toList();
+      final routes =
+          AppRouter.router.configuration.routes.whereType<GoRoute>().toList();
       final paths = routes.map((r) => r.path).toList();
 
       expect(paths, contains('/login'));
@@ -21,7 +22,8 @@ void main() {
     });
 
     test('home route exposes expected nested routes', () {
-      final routes = AppRouter.router.routes.whereType<GoRoute>().toList();
+      final routes =
+          AppRouter.router.configuration.routes.whereType<GoRoute>().toList();
       final homeRoute = routes.firstWhere(
         (route) => route.path == '/home',
       );
