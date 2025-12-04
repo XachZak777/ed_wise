@@ -61,14 +61,22 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
       // Get postId from current state if possible
       String? postId;
       if (state is CommentLoaded) {
-        final comment = (state as CommentLoaded)
-            .comments
-            .firstWhere((c) => c.id == event.commentId, orElse: () => (state as CommentLoaded).comments.first);
-        postId = comment.postId;
+        final loadedState = state as CommentLoaded;
+
+        if (loadedState.comments.isNotEmpty) {
+          // Try to find the matching comment; if it's not present but we still
+          // have comments for the same post, fall back to the first one just
+          // to recover the postId for reloading.
+          final comment = loadedState.comments.firstWhere(
+            (c) => c.id == event.commentId,
+            orElse: () => loadedState.comments.first,
+          );
+          postId = comment.postId;
+        }
       }
-      
+
       await _repository.deleteComment(event.commentId);
-      
+
       // Reload comments if we have postId
       if (postId != null) {
         final comments = await _repository.getComments(postId);
@@ -87,11 +95,15 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
   ) async {
     try {
       await _repository.upvoteComment(event.commentId, event.userId);
-      // Reload comments
+
+      // Reload comments only when we have a non-empty list to infer postId from
       if (state is CommentLoaded) {
-        final postId = (state as CommentLoaded).comments.first.postId;
-        final comments = await _repository.getComments(postId);
-        emit(CommentLoaded(comments: comments));
+        final loadedState = state as CommentLoaded;
+        if (loadedState.comments.isNotEmpty) {
+          final postId = loadedState.comments.first.postId;
+          final comments = await _repository.getComments(postId);
+          emit(CommentLoaded(comments: comments));
+        }
       }
     } catch (e) {
       emit(CommentError(message: e.toString()));
@@ -104,11 +116,15 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
   ) async {
     try {
       await _repository.downvoteComment(event.commentId, event.userId);
-      // Reload comments
+
+      // Reload comments only when we have a non-empty list to infer postId from
       if (state is CommentLoaded) {
-        final postId = (state as CommentLoaded).comments.first.postId;
-        final comments = await _repository.getComments(postId);
-        emit(CommentLoaded(comments: comments));
+        final loadedState = state as CommentLoaded;
+        if (loadedState.comments.isNotEmpty) {
+          final postId = loadedState.comments.first.postId;
+          final comments = await _repository.getComments(postId);
+          emit(CommentLoaded(comments: comments));
+        }
       }
     } catch (e) {
       emit(CommentError(message: e.toString()));

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path_provider/path_provider.dart';
@@ -116,11 +118,32 @@ class FirebaseCertificateRepository implements CertificateRepository {
   }
 
   Future<String> _generateCertificatePDF(Certificate certificate) async {
-    // Simplified - in production, use a PDF generation library like pdf package
-    // For now, return a mock URL
-    final ref = _storage.ref().child('certificates/${certificate.certificateNumber}.pdf');
-    // In production, generate actual PDF and upload
-    return await ref.getDownloadURL();
+    // Simplified PDF generation: create a minimal text-based PDF-like content
+    // and upload it to Firebase Storage, then return its download URL.
+    final ref =
+        _storage.ref().child('certificates/${certificate.certificateNumber}.pdf');
+
+    // In a production app, replace this with real PDF bytes from a PDF library.
+    final content = '''
+EdWise Certificate
+
+Certificate Number: ${certificate.certificateNumber}
+User ID: ${certificate.userId}
+Course: ${certificate.courseName}
+Title: ${certificate.title}
+Description: ${certificate.description}
+Issued Date: ${certificate.issuedDate.toIso8601String()}
+''';
+
+    final bytes = Uint8List.fromList(utf8.encode(content));
+
+    final uploadTask = ref.putData(
+      bytes,
+      SettableMetadata(contentType: 'application/pdf'),
+    );
+
+    final snapshot = await uploadTask;
+    return await snapshot.ref.getDownloadURL();
   }
 }
 

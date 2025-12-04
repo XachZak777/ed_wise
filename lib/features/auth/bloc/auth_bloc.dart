@@ -19,11 +19,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     // Listen to auth state changes
     _authRepository.authStateChanges.listen((user) {
-      if (user != null) {
-        add(const AuthCheckRequested());
-      } else {
-        emit(const AuthUnauthenticated());
-      }
+      // Delegate handling of auth state changes to the AuthCheckRequested
+      // event so that all state transitions go through BLoC event handlers.
+      add(const AuthCheckRequested());
     });
   }
 

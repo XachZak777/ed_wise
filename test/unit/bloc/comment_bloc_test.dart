@@ -103,6 +103,97 @@ void main() {
         CommentLoaded(comments: mockComments),
       ],
     );
+
+    blocTest<CommentBloc, CommentState>(
+      'handles delete when comments list is empty without crashing',
+      build: () {
+        when(mockRepository.deleteComment(any))
+            .thenAnswer((_) async => {});
+        when(mockRepository.getComments(any))
+            .thenAnswer((_) async => <ForumComment>[]);
+        return CommentBloc(repository: mockRepository);
+      },
+      seed: () => CommentLoaded(comments: const []),
+      act: (bloc) => bloc.add(const CommentDeleteRequested(commentId: 'unknown')),
+      expect: () => [
+        const CommentLoading(),
+        isA<CommentLoaded>().having(
+          (s) => s.comments.length,
+          'comments length',
+          0,
+        ),
+      ],
+    );
+
+    blocTest<CommentBloc, CommentState>(
+      'reloads comments after upvote when comments are loaded',
+      build: () {
+        final updatedComments = [
+          mockComment.copyWith(upvotes: mockComment.upvotes + 1),
+        ];
+
+        when(mockRepository.upvoteComment(any, any))
+            .thenAnswer((_) async => {});
+        when(mockRepository.getComments(any))
+            .thenAnswer((_) async => updatedComments);
+
+        return CommentBloc(repository: mockRepository);
+      },
+      seed: () => CommentLoaded(comments: [mockComment]),
+      act: (bloc) => bloc.add(
+        const CommentUpvoteRequested(
+          commentId: 'comment_1',
+          userId: 'user_1',
+        ),
+      ),
+      expect: () => [
+        isA<CommentLoaded>().having(
+          (s) => s.comments.first.upvotes,
+          'upvotes',
+          1,
+        ),
+      ],
+    );
+
+    blocTest<CommentBloc, CommentState>(
+      'does not crash on upvote when comments list is empty',
+      build: () {
+        when(mockRepository.upvoteComment(any, any))
+            .thenAnswer((_) async => {});
+        // No comments to reload; getComments should never be called, but
+        // we still provide a safe stub in case.
+        when(mockRepository.getComments(any))
+            .thenAnswer((_) async => <ForumComment>[]);
+        return CommentBloc(repository: mockRepository);
+      },
+      seed: () => CommentLoaded(comments: const []),
+      act: (bloc) => bloc.add(
+        const CommentUpvoteRequested(
+          commentId: 'comment_1',
+          userId: 'user_1',
+        ),
+      ),
+      expect: () => <CommentState>[],
+    );
+
+    blocTest<CommentBloc, CommentState>(
+      'does not crash on downvote when comments list is empty',
+      build: () {
+        when(mockRepository.downvoteComment(any, any))
+            .thenAnswer((_) async => {});
+        when(mockRepository.getComments(any))
+            .thenAnswer((_) async => <ForumComment>[]);
+        return CommentBloc(repository: mockRepository);
+      },
+      seed: () => CommentLoaded(comments: const []),
+      act: (bloc) => bloc.add(
+        const CommentDownvoteRequested(
+          commentId: 'comment_1',
+          userId: 'user_1',
+        ),
+      ),
+      expect: () => <CommentState>[],
+    );
   });
 }
 
