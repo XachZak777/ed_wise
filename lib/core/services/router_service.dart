@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
@@ -53,9 +54,24 @@ class AppRouter {
               GoRoute(
                 path: 'edit',
                 builder: (context, state) {
-                  final profile = state.uri.queryParameters['profile'];
+                  final profileParam = state.uri.queryParameters['profile'];
+
+                  Map<String, dynamic>? initialProfile;
+                  if (profileParam != null && profileParam.isNotEmpty) {
+                    try {
+                      final decoded = jsonDecode(profileParam);
+                      if (decoded is Map<String, dynamic>) {
+                        initialProfile = decoded;
+                      }
+                    } catch (_) {
+                      // If parsing fails, fall back to null so the screen can
+                      // still be opened without crashing.
+                      initialProfile = null;
+                    }
+                  }
+
                   return EditProfileScreen(
-                    initialProfile: profile != null ? {} : null,
+                    initialProfile: initialProfile,
                   );
                 },
               ),

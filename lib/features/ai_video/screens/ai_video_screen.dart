@@ -26,7 +26,7 @@ class _AiVideoScreenState extends State<AiVideoScreen> {
     _loadVideos();
   }
 
-  void _loadVideos() {
+  Future<void> _loadVideos() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       context.read<AiVideoBloc>().add(AiVideoLoadRequested(userId: user.uid));
@@ -168,7 +168,7 @@ class _AiVideoScreenState extends State<AiVideoScreen> {
             }
 
             return RefreshIndicator(
-              onRefresh: () async => _loadVideos(),
+              onRefresh: _loadVideos,
               child: ListView.builder(
                 padding: const EdgeInsets.all(AppConstants.defaultPadding),
                 itemCount: filteredVideos.length,
