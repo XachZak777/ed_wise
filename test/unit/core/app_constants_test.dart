@@ -45,7 +45,7 @@ void main() {
     });
 
     test('API URL getters delegate to environment configuration', () async {
-      await dotenv.testLoad(fileInput: '''
+      dotenv.testLoad(fileInput: '''
 OPENAI_API_URL=https://api.custom-openai.test/v1
 GOOGLE_TTS_API_URL=https://tts.custom.test/v1
 ''');
