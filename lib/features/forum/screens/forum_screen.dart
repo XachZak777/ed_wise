@@ -280,8 +280,11 @@ class _ForumScreenState extends State<ForumScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BlocProvider(
-          create: (_) => CommentBloc(),
+        builder: (context) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: context.read<ForumBloc>()),
+            BlocProvider(create: (_) => CommentBloc()),
+          ],
           child: PostDetailsScreen(post: post),
         ),
       ),

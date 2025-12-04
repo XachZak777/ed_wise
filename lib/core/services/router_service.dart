@@ -9,6 +9,8 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/certificates_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
+import '../../features/profile/screens/privacy_policy_screen.dart';
+import '../../features/profile/screens/terms_of_service_screen.dart';
 import '../../features/ai_agent/screens/ai_agent_screen.dart';
 import '../../shared/widgets/main_navigation.dart';
 

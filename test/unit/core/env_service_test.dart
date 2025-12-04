@@ -5,9 +5,9 @@ import 'package:ed_wise/core/services/env_service.dart';
 
 void main() {
   group('EnvService', () {
-    setUp(() async {
+    setUp(() {
       // Use testLoad so we don't rely on a real .env file on disk
-      await dotenv.testLoad(fileInput: '''
+      dotenv.testLoad(fileInput: '''
 FIREBASE_PROJECT_ID=test-project
 FIREBASE_WEB_API_KEY=test-web-api-key
 FIREBASE_WEB_APP_ID=test-web-app-id
@@ -98,7 +98,7 @@ GOOGLE_SIGN_IN_ANDROID_CLIENT_ID=test-android-client-id
 
     test('defaults are used when env vars are missing', () async {
       // Reset env to empty to verify default fallbacks
-      await dotenv.testLoad(fileInput: '');
+      dotenv.testLoad(fileInput: '');
 
       expect(EnvService.firebaseProjectId, 'edwise-app');
       expect(EnvService.firebaseWebAuthDomain, 'edwise-app.firebaseapp.com');
