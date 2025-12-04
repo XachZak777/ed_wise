@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
-import '../providers/profile_provider.dart';
+import '../../auth/bloc/auth_bloc.dart';
+import '../../auth/bloc/auth_event.dart';
+import '../bloc/profile_bloc.dart';
+import '../bloc/profile_event.dart';
+import '../bloc/profile_state.dart';
+import 'edit_profile_screen.dart';
+import 'certificates_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,22 +21,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final ProfileProvider _provider = ProfileProvider();
-  Map<String, dynamic>? _userProfile;
-
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
-  }
-
-  Future<void> _loadUserProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final profile = await _provider.getUserProfile(user.uid);
-      setState(() {
-        _userProfile = profile;
-      });
+      context.read<ProfileBloc>().add(ProfileLoadRequested(uid: user.uid));
     }
   }
 
@@ -49,94 +47,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Profile'),
         actions: [
           IconButton(
-            onPressed: _showSettingsDialog,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
             icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.defaultPadding),
-        child: Column(
-          children: [
-            // Profile Header
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppConstants.defaultPadding),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      child: Text(
-                        user.displayName?.isNotEmpty == true 
-                            ? user.displayName![0].toUpperCase()
-                            : user.email![0].toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+      body: BlocBuilder<ProfileBloc, ProfileState>(
+        builder: (context, state) {
+          Map<String, dynamic>? userProfile;
+          if (state is ProfileLoaded) {
+            userProfile = state.profile;
+          } else if (state is ProfileUpdated) {
+            userProfile = state.profile;
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(AppConstants.defaultPadding),
+            child: Column(
+              children: [
+                // Profile Header
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppConstants.defaultPadding),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                          child: Text(
+                            user.displayName?.isNotEmpty == true 
+                                ? user.displayName![0].toUpperCase()
+                                : user.email![0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          user.displayName ?? userProfile?['name'] ?? 'User',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user.email ?? userProfile?['email'] ?? '',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditProfileScreen(
+                                  initialProfile: userProfile,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Edit Profile'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      user.displayName ?? 'User',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email ?? '',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _showEditProfileDialog,
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Edit Profile'),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-            // Study Statistics
-            if (_userProfile != null) ...[
-              _buildStatsSection(context),
-              const SizedBox(height: 24),
-            ],
+                // Study Statistics
+                if (userProfile != null) ...[
+                  _buildStatsSection(context, userProfile),
+                  const SizedBox(height: 24),
+                ],
 
-            // Quick Actions
-            _buildQuickActionsSection(context),
-            const SizedBox(height: 24),
+                // Quick Actions
+                _buildQuickActionsSection(context),
+                const SizedBox(height: 24),
 
-            // Settings
-            _buildSettingsSection(context),
-            const SizedBox(height: 24),
+                // Certificates Section
+                _buildCertificatesSection(context),
+                const SizedBox(height: 24),
 
-            // Sign Out
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: AppTheme.errorColor),
-                title: const Text(
-                  'Sign Out',
-                  style: TextStyle(color: AppTheme.errorColor),
+                // Settings
+                _buildSettingsSection(context),
+                const SizedBox(height: 24),
+
+                // Sign Out
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.logout, color: AppTheme.errorColor),
+                    title: const Text(
+                      'Sign Out',
+                      style: TextStyle(color: AppTheme.errorColor),
+                    ),
+                    onTap: _showSignOutConfirmation,
+                  ),
                 ),
-                onTap: _showSignOutConfirmation,
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStatsSection(BuildContext context) {
-    final stats = _userProfile?['studyStats'] ?? {};
+  Widget _buildStatsSection(BuildContext context, Map<String, dynamic> profile) {
+    final stats = profile['studyStats'] ?? {};
     
     return Card(
       child: Padding(
@@ -262,6 +292,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             _buildActionTile(
               context,
+              'AI Assistant',
+              'Chat with AI learning assistant',
+              Icons.smart_toy,
+              () => context.go('/home/ai-agent'),
+            ),
+            _buildActionTile(
+              context,
               'Browse Forum',
               'Join discussions',
               Icons.forum,
@@ -289,6 +326,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildCertificatesSection(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.defaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Certificates',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CertificatesScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'View and download your course certificates',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsSection(BuildContext context) {
     return Card(
       child: Padding(
@@ -308,14 +387,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Notifications',
               'Manage notification preferences',
               Icons.notifications,
-              () => _showNotificationSettings(),
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
             ),
             _buildSettingsTile(
               context,
               'Privacy',
               'Control your privacy settings',
               Icons.privacy_tip,
-              () => _showPrivacySettings(),
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
             ),
             _buildSettingsTile(
               context,
@@ -347,32 +440,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showEditProfileDialog() {
-    // TODO: Implement edit profile dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit profile coming soon')),
-    );
+    // Handled by button in profile header
   }
 
-  void _showSettingsDialog() {
-    // TODO: Implement settings dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings coming soon')),
-    );
-  }
+  // Settings navigation is handled directly in AppBar action button
 
-  void _showNotificationSettings() {
-    // TODO: Implement notification settings
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notification settings coming soon')),
-    );
-  }
-
-  void _showPrivacySettings() {
-    // TODO: Implement privacy settings
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Privacy settings coming soon')),
-    );
-  }
+  // Settings moved to SettingsScreen
 
   void _showAboutDialog() {
     showDialog(
@@ -412,7 +485,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await _provider.signOut();
+              // Sign out through auth bloc
+              context.read<AuthBloc>().add(const AuthSignOutRequested());
               if (mounted) {
                 context.go('/login');
               }
@@ -424,3 +498,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

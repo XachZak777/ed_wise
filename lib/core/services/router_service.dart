@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
@@ -5,6 +6,10 @@ import '../../features/study_plans/screens/study_plans_screen.dart';
 import '../../features/ai_video/screens/ai_video_screen.dart';
 import '../../features/forum/screens/forum_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/certificates_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
+import '../../features/ai_agent/screens/ai_agent_screen.dart';
 import '../../shared/widgets/main_navigation.dart';
 
 class AppRouter {
@@ -39,8 +44,46 @@ class AppRouter {
             builder: (context, state) => const ForumScreen(),
           ),
           GoRoute(
+            path: 'ai-agent',
+            builder: (context, state) => const AiAgentScreen(),
+          ),
+          GoRoute(
             path: 'profile',
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) {
+                  final profileParam = state.uri.queryParameters['profile'];
+
+                  Map<String, dynamic>? initialProfile;
+                  if (profileParam != null && profileParam.isNotEmpty) {
+                    try {
+                      final decoded = jsonDecode(profileParam);
+                      if (decoded is Map<String, dynamic>) {
+                        initialProfile = decoded;
+                      }
+                    } catch (_) {
+                      // If parsing fails, fall back to null so the screen can
+                      // still be opened without crashing.
+                      initialProfile = null;
+                    }
+                  }
+
+                  return EditProfileScreen(
+                    initialProfile: initialProfile,
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'certificates',
+                builder: (context, state) => const CertificatesScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (context, state) => const SettingsScreen(),
           ),
         ],
       ),

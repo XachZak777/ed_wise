@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
-import '../providers/forum_provider.dart';
+import '../bloc/forum_bloc.dart';
+import '../bloc/forum_event.dart';
+import '../bloc/forum_state.dart';
+import '../bloc/comment_bloc.dart';
 import '../widgets/forum_post_card.dart';
 import '../widgets/create_post_dialog.dart';
 import '../widgets/category_filter_chip.dart';
+import '../screens/post_details_screen.dart';
 import '../models/forum_post.dart';
 
 class ForumScreen extends StatefulWidget {
@@ -16,17 +21,15 @@ class ForumScreen extends StatefulWidget {
 }
 
 class _ForumScreenState extends State<ForumScreen> {
-  final ForumProvider _provider = ForumProvider();
   String _selectedCategory = 'All';
   String _sortBy = 'Recent';
   final List<String> _categories = [
     'All',
+    'Flutter',
+    'Firebase',
+    'Dart',
     'General',
     'Study Tips',
-    'Science',
-    'Mathematics',
-    'Technology',
-    'Q&A',
   ];
 
   @override
@@ -36,7 +39,11 @@ class _ForumScreenState extends State<ForumScreen> {
   }
 
   Future<void> _loadPosts() async {
-    await _provider.loadPosts();
+    context.read<ForumBloc>().add(
+          ForumLoadRequested(
+            category: _selectedCategory == 'All' ? null : _selectedCategory,
+          ),
+        );
   }
 
   @override
@@ -45,6 +52,11 @@ class _ForumScreenState extends State<ForumScreen> {
       appBar: AppBar(
         title: const Text('Forum'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Create Post',
+            onPressed: _showCreatePostDialog,
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               setState(() {
@@ -83,6 +95,7 @@ class _ForumScreenState extends State<ForumScreen> {
                   onSelected: (selected) {
                     setState(() {
                       _selectedCategory = selected ? category : 'All';
+                      _loadPosts();
                     });
                   },
                 );
@@ -93,14 +106,13 @@ class _ForumScreenState extends State<ForumScreen> {
           
           // Posts List
           Expanded(
-            child: StreamBuilder<List<ForumPost>>(
-              stream: _provider.postsStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: BlocBuilder<ForumBloc, ForumState>(
+              builder: (context, state) {
+                if (state is ForumLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (snapshot.hasError) {
+                if (state is ForumError) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -117,7 +129,7 @@ class _ForumScreenState extends State<ForumScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          snapshot.error.toString(),
+                          state.message,
                           style: Theme.of(context).textTheme.bodyMedium,
                           textAlign: TextAlign.center,
                         ),
@@ -131,7 +143,11 @@ class _ForumScreenState extends State<ForumScreen> {
                   );
                 }
 
-                final posts = snapshot.data ?? [];
+                List<ForumPost> posts = [];
+                if (state is ForumLoaded) {
+                  posts = state.posts;
+                }
+
                 final filteredPosts = _filterAndSortPosts(posts);
 
                 if (filteredPosts.isEmpty) {
@@ -191,10 +207,6 @@ class _ForumScreenState extends State<ForumScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreatePostDialog,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
@@ -238,17 +250,20 @@ class _ForumScreenState extends State<ForumScreen> {
       context: context,
       builder: (context) => CreatePostDialog(
         categories: _categories.where((c) => c != 'All').toList(),
-        onCreate: (title, content, category, tags) async {
-          await _provider.createPost(
-            user.uid,
-            user.email ?? '',
-            user.displayName ?? 'Anonymous',
-            title,
-            content,
-            category,
-            tags,
-          );
+        onCreate: (title, content, category, tags) {
+          context.read<ForumBloc>().add(
+                ForumPostCreateRequested(
+                  userId: user.uid,
+                  userName: user.displayName ?? 'Anonymous',
+                  userEmail: user.email ?? '',
+                  title: title,
+                  content: content,
+                  category: category,
+                  tags: tags,
+                ),
+              );
           if (mounted) {
+            Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Post created successfully'),
@@ -262,9 +277,14 @@ class _ForumScreenState extends State<ForumScreen> {
   }
 
   void _navigateToPostDetails(ForumPost post) {
-    // TODO: Navigate to post details screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Post details coming soon')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (_) => CommentBloc(),
+          child: PostDetailsScreen(post: post),
+        ),
+      ),
     );
   }
 
@@ -272,13 +292,23 @@ class _ForumScreenState extends State<ForumScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _provider.toggleUpvote(post.id, user.uid);
+    context.read<ForumBloc>().add(
+          ForumPostUpvoteRequested(
+            postId: post.id,
+            userId: user.uid,
+          ),
+        );
   }
 
   void _handleDownvote(ForumPost post) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _provider.toggleDownvote(post.id, user.uid);
+    context.read<ForumBloc>().add(
+          ForumPostDownvoteRequested(
+            postId: post.id,
+            userId: user.uid,
+          ),
+        );
   }
 }

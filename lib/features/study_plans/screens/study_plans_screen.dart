@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
-import '../providers/study_plan_provider.dart';
+import '../bloc/study_plan_bloc.dart';
+import '../bloc/study_plan_event.dart';
+import '../bloc/study_plan_state.dart';
 import '../widgets/study_plan_card.dart';
 import '../widgets/add_study_plan_dialog.dart';
+import '../widgets/edit_study_plan_dialog.dart';
 import '../models/study_plan.dart';
 
 class StudyPlansScreen extends StatefulWidget {
@@ -15,7 +19,6 @@ class StudyPlansScreen extends StatefulWidget {
 }
 
 class _StudyPlansScreenState extends State<StudyPlansScreen> {
-  final StudyPlanProvider _provider = StudyPlanProvider();
   String _selectedFilter = 'All';
 
   @override
@@ -24,10 +27,10 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
     _loadStudyPlans();
   }
 
-  Future<void> _loadStudyPlans() async {
+  void _loadStudyPlans() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await _provider.loadStudyPlans(user.uid);
+      context.read<StudyPlanBloc>().add(StudyPlanLoadRequested(userId: user.uid));
     }
   }
 
@@ -37,6 +40,11 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
       appBar: AppBar(
         title: const Text('Study Plans'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Create Study Plan',
+            onPressed: _showAddStudyPlanDialog,
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               setState(() {
@@ -59,14 +67,13 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<StudyPlan>>(
-        stream: _provider.studyPlansStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<StudyPlanBloc, StudyPlanState>(
+        builder: (context, state) {
+          if (state is StudyPlanLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
+          if (state is StudyPlanError) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -83,7 +90,7 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    snapshot.error.toString(),
+                    state.message,
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -97,7 +104,11 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
             );
           }
 
-          final studyPlans = snapshot.data ?? [];
+          List<StudyPlan> studyPlans = [];
+          if (state is StudyPlanLoaded) {
+            studyPlans = state.studyPlans;
+          }
+
           final filteredPlans = _filterStudyPlans(studyPlans);
 
           if (filteredPlans.isEmpty) {
@@ -114,7 +125,7 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
                   Text(
                     _selectedFilter == 'All'
                         ? 'No study plans yet'
-                        : 'No $_selectedFilter.toLowerCase() plans',
+                        : 'No ${_selectedFilter.toLowerCase()} plans',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
@@ -137,7 +148,7 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
           }
 
           return RefreshIndicator(
-            onRefresh: _loadStudyPlans,
+            onRefresh: () async => _loadStudyPlans(),
             child: ListView.builder(
               padding: const EdgeInsets.all(AppConstants.defaultPadding),
               itemCount: filteredPlans.length,
@@ -153,10 +164,6 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddStudyPlanDialog,
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -181,12 +188,15 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
         onSave: (title, description) async {
           final user = FirebaseAuth.instance.currentUser;
           if (user != null) {
-            await _provider.createStudyPlan(
-              user.uid,
-              title,
-              description,
-            );
+            context.read<StudyPlanBloc>().add(
+                  StudyPlanCreateRequested(
+                    userId: user.uid,
+                    title: title,
+                    description: description,
+                  ),
+                );
             if (mounted) {
+              Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Study plan created successfully'),
@@ -201,9 +211,28 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
   }
 
   void _showEditStudyPlanDialog(StudyPlan plan) {
-    // TODO: Implement edit dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit functionality coming soon')),
+    showDialog(
+      context: context,
+      builder: (context) => EditStudyPlanDialog(
+        studyPlan: plan,
+        onSave: (updates) {
+          context.read<StudyPlanBloc>().add(
+                StudyPlanUpdateRequested(
+                  planId: plan.id,
+                  updates: updates,
+                ),
+              );
+          if (mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Study plan updated successfully'),
+                backgroundColor: AppTheme.successColor,
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -219,9 +248,11 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(context).pop();
-              await _provider.deleteStudyPlan(plan.id);
+              context.read<StudyPlanBloc>().add(
+                    StudyPlanDeleteRequested(planId: plan.id),
+                  );
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -231,7 +262,10 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
                 );
               }
             },
-            child: const Text('Delete'),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppTheme.errorColor),
+            ),
           ),
         ],
       ),
