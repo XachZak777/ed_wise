@@ -1,10 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../config/app_config.dart';
 import '../constants/app_constants.dart';
 import '../services/env_service.dart';
-import '../../features/auth/repositories/mock_auth_repository.dart';
 
 abstract class AuthRepository {
   static AuthRepository get instance {
