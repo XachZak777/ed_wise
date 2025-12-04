@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,6 +26,7 @@ class PostDetailsScreen extends StatefulWidget {
 class _PostDetailsScreenState extends State<PostDetailsScreen> {
   final TextEditingController _commentController = TextEditingController();
   late ForumPost _currentPost;
+  StreamSubscription<ForumState>? _forumSubscription;
   final List<String> _categories = [
     'Flutter',
     'Firebase',
@@ -37,11 +39,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   void initState() {
     super.initState();
     _currentPost = widget.post;
-    context.read<CommentBloc>().add(CommentLoadRequested(postId: widget.post.id));
-    
+    context
+        .read<CommentBloc>()
+        .add(CommentLoadRequested(postId: widget.post.id));
+
     // Listen to forum bloc to update post when it's edited
     final forumBloc = context.read<ForumBloc>();
-    forumBloc.stream.listen((state) {
+    _forumSubscription = forumBloc.stream.listen((state) {
       if (state is ForumLoaded) {
         try {
           final updatedPost = state.posts.firstWhere(
@@ -62,6 +66,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   @override
   void dispose() {
     _commentController.dispose();
+    _forumSubscription?.cancel();
     super.dispose();
   }
   

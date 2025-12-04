@@ -71,9 +71,9 @@ class MockAuthRepository implements AuthRepository {
 
   @override
   User? get currentUser {
-    // Return actual Firebase user if available, otherwise return null
-    // In mock mode, we'll rely on the stored mock data
-    return FirebaseAuth.instance.currentUser;
+    // In mock mode, always return the internally maintained mock user
+    // so that sign-in/sign-up/sign-out operations stay consistent.
+    return _currentUser;
   }
 
   @override

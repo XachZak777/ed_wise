@@ -38,7 +38,7 @@ class _ForumScreenState extends State<ForumScreen> {
     _loadPosts();
   }
 
-  void _loadPosts() {
+  Future<void> _loadPosts() async {
     context.read<ForumBloc>().add(
           ForumLoadRequested(
             category: _selectedCategory == 'All' ? null : _selectedCategory,
@@ -187,7 +187,7 @@ class _ForumScreenState extends State<ForumScreen> {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => _loadPosts(),
+                  onRefresh: _loadPosts,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(AppConstants.defaultPadding),
                     itemCount: filteredPosts.length,
