@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "418478299177",
+    "project_id": "edwise-app",
+    "storage_bucket": "edwise-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418478299177:android:4a4d36fc0d98f477e4a438",
+        "android_client_info": {
+          "package_name": "aua.am"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "418478299177-cqhe9l4iggteug8m4sat5oehjlciodr9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1mAymfFgJLQnr8vDrd2szNKIzU1lrOvk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "418478299177-cqhe9l4iggteug8m4sat5oehjlciodr9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

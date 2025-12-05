@@ -3,14 +3,24 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../../firebase_options.dart';
 
 class FirebaseService {
   static FirebaseAuth get auth => FirebaseAuth.instance;
   static FirebaseFirestore get firestore => FirebaseFirestore.instance;
   static FirebaseStorage get storage => FirebaseStorage.instance;
   
+  /// Initialize Firebase if not already initialized.
+  /// Note: Firebase should already be initialized in main.dart.
+  /// This is a safety check method only.
   static Future<void> initialize() async {
-    await Firebase.initializeApp();
+    // Firebase should already be initialized in main.dart
+    // Only initialize if not already initialized (safety check)
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
   }
   
   // Auth Methods
