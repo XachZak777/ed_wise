@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
+import '../bloc/study_plan_bloc.dart';
+import '../bloc/study_plan_state.dart';
 
 class AddStudyPlanDialog extends StatefulWidget {
   final Function(String title, String description) onSave;
@@ -32,16 +35,16 @@ class _AddStudyPlanDialogState extends State<AddStudyPlanDialog> {
     setState(() => _isLoading = true);
 
     try {
-      await widget.onSave(
+      widget.onSave(
         _titleController.text.trim(),
         _descriptionController.text.trim(),
       );
       
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      // Dialog will be closed by BlocListener in parent
+      // Keep loading state until BLoC completes
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to create study plan: $e'),
@@ -49,16 +52,22 @@ class _AddStudyPlanDialogState extends State<AddStudyPlanDialog> {
           ),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return BlocListener<StudyPlanBloc, StudyPlanState>(
+      listenWhen: (previous, current) {
+        // Reset loading state on error after loading started
+        return previous is StudyPlanLoading && current is StudyPlanError;
+      },
+      listener: (context, state) {
+        if (state is StudyPlanError && _isLoading) {
+          setState(() => _isLoading = false);
+        }
+      },
+      child: AlertDialog(
       title: const Text('Create Study Plan'),
       content: Form(
         key: _formKey,
@@ -113,6 +122,7 @@ class _AddStudyPlanDialogState extends State<AddStudyPlanDialog> {
               : const Text('Create'),
         ),
       ],
+      ),
     );
   }
 }
