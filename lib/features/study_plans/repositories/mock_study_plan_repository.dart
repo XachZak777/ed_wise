@@ -2,11 +2,15 @@ import 'package:uuid/uuid.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/repositories/study_plan_repository.dart';
 import '../models/study_plan.dart';
+import '../models/study_plan_progress_strategy.dart';
 
 class MockStudyPlanRepository implements StudyPlanRepository {
   final List<StudyPlan> _mockStudyPlans = [];
+  final StudyPlanProgressStrategy _progressStrategy;
 
-  MockStudyPlanRepository() {
+  MockStudyPlanRepository({
+    StudyPlanProgressStrategy? progressStrategy,
+  }) : _progressStrategy = progressStrategy ?? SimpleStudyPlanProgressStrategy() {
     _initializeMockData();
   }
 
@@ -15,7 +19,8 @@ class MockStudyPlanRepository implements StudyPlanRepository {
     final now = DateTime.now();
     
     _mockStudyPlans.addAll([
-      StudyPlan(
+      _progressStrategy.withUpdatedProgressForPlan(
+        StudyPlan(
         id: 'plan_1',
         userId: 'demo_user',
         title: 'Flutter Development Course',
@@ -91,9 +96,11 @@ class MockStudyPlanRepository implements StudyPlanRepository {
         status: StudyPlanStatus.active,
         totalTasks: 5,
         completedTasks: 2,
-        progress: 0.4,
+        progress: 0.0,
       ),
-      StudyPlan(
+      ),
+      _progressStrategy.withUpdatedProgressForPlan(
+        StudyPlan(
         id: 'plan_2',
         userId: 'demo_user',
         title: 'Firebase Integration',
@@ -133,7 +140,8 @@ class MockStudyPlanRepository implements StudyPlanRepository {
         status: StudyPlanStatus.active,
         totalTasks: 2,
         completedTasks: 1,
-        progress: 0.5,
+        progress: 0.0,
+      ),
       ),
     ]);
   }
@@ -213,15 +221,13 @@ class MockStudyPlanRepository implements StudyPlanRepository {
     if (index != -1) {
       final plan = _mockStudyPlans[index];
       final updatedSubjects = [...plan.subjects, subject];
-      final totalTasks = updatedSubjects.fold<int>(
-        0,
-        (total, subj) => total + subj.totalTasks,
+      final updatedPlan = _progressStrategy.withUpdatedProgressForPlan(
+        plan.copyWith(
+          subjects: updatedSubjects,
+          updatedAt: DateTime.now(),
+        ),
       );
-      _mockStudyPlans[index] = plan.copyWith(
-        subjects: updatedSubjects,
-        totalTasks: totalTasks,
-        updatedAt: DateTime.now(),
-      );
+      _mockStudyPlans[index] = updatedPlan;
     }
   }
 
@@ -254,37 +260,33 @@ class MockStudyPlanRepository implements StudyPlanRepository {
           );
           final updatedTasks = List<Task>.from(subject.tasks);
           updatedTasks[taskIndex] = updatedTask;
-          
-          final completedTasks = updatedTasks.where((t) => t.status == TaskStatus.completed).length;
-          final updatedSubject = Subject(
+
+          final subjectWithUpdatedTasks = Subject(
             id: subject.id,
             name: subject.name,
             description: subject.description,
             color: subject.color,
             tasks: updatedTasks,
+            // These will be recalculated by the strategy
             totalTasks: subject.totalTasks,
-            completedTasks: completedTasks,
-            progress: subject.totalTasks > 0 ? completedTasks / subject.totalTasks : 0.0,
+            completedTasks: subject.completedTasks,
+            progress: subject.progress,
           );
-          
+
+          final updatedSubject =
+              _progressStrategy.withUpdatedProgressForSubject(subjectWithUpdatedTasks);
+
           final updatedSubjects = List<Subject>.from(plan.subjects);
           updatedSubjects[subjectIndex] = updatedSubject;
-          
-          final totalCompleted = updatedSubjects.fold<int>(
-            0,
-            (total, subj) => total + subj.completedTasks,
+
+          final updatedPlan = _progressStrategy.withUpdatedProgressForPlan(
+            plan.copyWith(
+              subjects: updatedSubjects,
+              updatedAt: DateTime.now(),
+            ),
           );
-          final totalTasks = updatedSubjects.fold<int>(
-            0,
-            (total, subj) => total + subj.totalTasks,
-          );
-          
-          _mockStudyPlans[planIndex] = plan.copyWith(
-            subjects: updatedSubjects,
-            completedTasks: totalCompleted,
-            progress: totalTasks > 0 ? totalCompleted / totalTasks : 0.0,
-            updatedAt: DateTime.now(),
-          );
+
+          _mockStudyPlans[planIndex] = updatedPlan;
         }
       }
     }
