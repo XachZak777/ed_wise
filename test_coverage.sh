@@ -3,7 +3,7 @@
 # Test Coverage Script for EdWise
 # This script runs all tests and generates coverage reports
 
-echo "🧪 Running Flutter tests with coverage..."
+echo "Running Flutter tests with coverage..."
 
 # Run tests with coverage
 flutter test --coverage
@@ -50,4 +50,3 @@ fi
 echo ""
 echo "Coverage Summary:"
 lcov --summary coverage/lcov.info
-

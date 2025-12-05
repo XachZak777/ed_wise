@@ -248,30 +248,54 @@ class _ForumScreenState extends State<ForumScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => CreatePostDialog(
-        categories: _categories.where((c) => c != 'All').toList(),
-        onCreate: (title, content, category, tags) {
-          context.read<ForumBloc>().add(
-                ForumPostCreateRequested(
-                  userId: user.uid,
-                  userName: user.displayName ?? 'Anonymous',
-                  userEmail: user.email ?? '',
-                  title: title,
-                  content: content,
-                  category: category,
-                  tags: tags,
+      builder: (dialogContext) => BlocListener<ForumBloc, ForumState>(
+        listenWhen: (previous, current) {
+          // Only react if we transitioned from Loading to Loaded (creation completed)
+          // or if there's an error after loading started
+          return (previous is ForumLoading && current is ForumLoaded) ||
+              (previous is ForumLoading && current is ForumError) ||
+              (previous is ForumPostCreated && current is ForumLoaded);
+        },
+        listener: (context, state) {
+          if (state is ForumLoaded) {
+            // Post created and loaded successfully
+            if (mounted) {
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Post created successfully'),
+                  backgroundColor: AppTheme.successColor,
                 ),
               );
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Post created successfully'),
-                backgroundColor: AppTheme.successColor,
-              ),
-            );
+            }
+          } else if (state is ForumError) {
+            // Error occurred
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to create post: ${state.message}'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
           }
         },
+        child: CreatePostDialog(
+          categories: _categories.where((c) => c != 'All').toList(),
+          onCreate: (title, content, category, tags) {
+            context.read<ForumBloc>().add(
+                  ForumPostCreateRequested(
+                    userId: user.uid,
+                    userName: user.displayName ?? 'Anonymous',
+                    userEmail: user.email ?? '',
+                    title: title,
+                    content: content,
+                    category: category,
+                    tags: tags,
+                  ),
+                );
+          },
+        ),
       ),
     );
   }

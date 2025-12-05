@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
+import '../bloc/forum_bloc.dart';
+import '../bloc/forum_state.dart';
 
 class CreatePostDialog extends StatefulWidget {
   final List<String> categories;
@@ -51,18 +54,18 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
           .where((tag) => tag.isNotEmpty)
           .toList();
 
-      await widget.onCreate(
+      widget.onCreate(
         _titleController.text.trim(),
         _contentController.text.trim(),
         _selectedCategory,
         tags,
       );
       
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      // Dialog will be closed by BlocListener in parent
+      // Keep loading state until BLoC completes
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to create post: $e'),
@@ -70,16 +73,22 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
           ),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return BlocListener<ForumBloc, ForumState>(
+      listenWhen: (previous, current) {
+        // Reset loading state on error after loading started
+        return previous is ForumLoading && current is ForumError;
+      },
+      listener: (context, state) {
+        if (state is ForumError && _isLoading) {
+          setState(() => _isLoading = false);
+        }
+      },
+      child: AlertDialog(
       title: const Text('Create New Post'),
       content: Form(
         key: _formKey,
@@ -234,6 +243,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
               : const Text('Create Post'),
         ),
       ],
+      ),
     );
   }
 }

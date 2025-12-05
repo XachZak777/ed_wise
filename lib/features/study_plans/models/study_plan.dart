@@ -33,8 +33,9 @@ class StudyPlan {
       userId: map['userId'] ?? '',
       title: map['title'] ?? '',
       description: map['description'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      // Normalize Firestore timestamps to UTC so tests comparing against DateTime.utc pass consistently.
+      createdAt: (map['createdAt'] as Timestamp).toDate().toUtc(),
+      updatedAt: (map['updatedAt'] as Timestamp).toDate().toUtc(),
       subjects: (map['subjects'] as List<dynamic>? ?? [])
           .map((subject) => Subject.fromMap(subject))
           .toList(),
@@ -173,12 +174,12 @@ class Task {
         orElse: () => TaskStatus.pending,
       ),
       dueDate: map['dueDate'] != null
-          ? (map['dueDate'] as Timestamp).toDate()
+          ? (map['dueDate'] as Timestamp).toDate().toUtc()
           : null,
       priority: map['priority'] ?? 1,
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: (map['createdAt'] as Timestamp).toDate().toUtc(),
       completedAt: map['completedAt'] != null
-          ? (map['completedAt'] as Timestamp).toDate()
+          ? (map['completedAt'] as Timestamp).toDate().toUtc()
           : null,
     );
   }

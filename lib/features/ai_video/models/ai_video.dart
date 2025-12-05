@@ -44,9 +44,10 @@ class AiVideo {
         (e) => e.name == map['status'],
         orElse: () => VideoStatus.pending,
       ),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      // Normalize Firestore timestamps to UTC to avoid timezone-dependent test failures.
+      createdAt: (map['createdAt'] as Timestamp).toDate().toUtc(),
       completedAt: map['completedAt'] != null
-          ? (map['completedAt'] as Timestamp).toDate()
+          ? (map['completedAt'] as Timestamp).toDate().toUtc()
           : null,
       duration: map['duration'] ?? 0,
       thumbnailUrl: map['thumbnailUrl'] ?? '',

@@ -183,5 +183,21 @@ class MockCommentRepository implements CommentRepository {
       }
     }
   }
+
+  @override
+  Future<void> updateComment(String commentId, String content) async {
+    await Future.delayed(Duration(milliseconds: AppConfig.mockDataDelay));
+    for (final comments in _commentsByPost.values) {
+      final index = comments.indexWhere((c) => c.id == commentId);
+      if (index != -1) {
+        final comment = comments[index];
+        comments[index] = comment.copyWith(
+          content: content,
+          updatedAt: DateTime.now(),
+        );
+        break;
+      }
+    }
+  }
 }
 

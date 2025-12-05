@@ -24,6 +24,7 @@ abstract class CommentRepository {
   Future<void> deleteComment(String commentId);
   Future<void> upvoteComment(String commentId, String userId);
   Future<void> downvoteComment(String commentId, String userId);
+  Future<void> updateComment(String commentId, String content);
 }
 
 class FirebaseCommentRepository implements CommentRepository {
@@ -198,6 +199,21 @@ class FirebaseCommentRepository implements CommentRepository {
       });
     } catch (e) {
       throw Exception('Failed to downvote comment: $e');
+    }
+  }
+
+  @override
+  Future<void> updateComment(String commentId, String content) async {
+    try {
+      await _firestore
+          .collection(AppConstants.forumCommentsCollection)
+          .doc(commentId)
+          .update({
+        'content': content,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      throw Exception('Failed to update comment: $e');
     }
   }
 }
