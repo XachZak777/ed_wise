@@ -45,8 +45,7 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.3
   firebase_storage: ^12.3.2
-  # Pin to google_sign_in 6.x API that matches our AuthRepository implementation
-  google_sign_in: 6.3.0
+  google_sign_in: ^6.2.1
   
   # HTTP & API
   http: ^1.2.2
@@ -78,8 +77,7 @@ dependencies:
   intl: ^0.19.0
   uuid: ^4.5.1
   url_launcher: ^6.3.1
-  # Use latest dotenv with loadFromString() API
-  flutter_dotenv: ^6.0.0
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
