@@ -67,6 +67,67 @@ void main() {
         const ProfileError(message: 'Exception: Failed to load'),
       ],
     );
+
+    blocTest<ProfileBloc, ProfileState>(
+      'emits [ProfileLoading, ProfileUpdated] when profile is updated successfully',
+      build: () {
+        when(mockRepository.updateUserProfile(any, any))
+            .thenAnswer((_) async => {});
+        when(mockRepository.getUserProfile(any))
+            .thenAnswer((_) async => mockProfile);
+        return ProfileBloc(authRepository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const ProfileUpdateRequested(
+          uid: 'user_1',
+          data: {'name': 'Updated User'},
+        ),
+      ),
+      expect: () => [
+        const ProfileLoading(),
+        ProfileUpdated(profile: mockProfile),
+      ],
+    );
+
+    blocTest<ProfileBloc, ProfileState>(
+      'emits [ProfileLoading, ProfileError] when updated profile cannot be reloaded',
+      build: () {
+        when(mockRepository.updateUserProfile(any, any))
+            .thenAnswer((_) async => {});
+        when(mockRepository.getUserProfile(any))
+            .thenAnswer((_) async => null);
+        return ProfileBloc(authRepository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const ProfileUpdateRequested(
+          uid: 'user_1',
+          data: {'name': 'Updated User'},
+        ),
+      ),
+      expect: () => [
+        const ProfileLoading(),
+        const ProfileError(message: 'Failed to reload profile'),
+      ],
+    );
+
+    blocTest<ProfileBloc, ProfileState>(
+      'emits [ProfileLoading, ProfileError] when updateUserProfile fails',
+      build: () {
+        when(mockRepository.updateUserProfile(any, any))
+            .thenThrow(Exception('Failed to update'));
+        return ProfileBloc(authRepository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const ProfileUpdateRequested(
+          uid: 'user_1',
+          data: {'name': 'Updated User'},
+        ),
+      ),
+      expect: () => [
+        const ProfileLoading(),
+        const ProfileError(message: 'Exception: Failed to update'),
+      ],
+    );
   });
 }
 
