@@ -105,6 +105,34 @@ void main() {
     );
 
     blocTest<CommentBloc, CommentState>(
+      'emits [CommentLoading, CommentError] when createComment fails',
+      build: () {
+        when(mockRepository.createComment(
+          postId: anyNamed('postId'),
+          userId: anyNamed('userId'),
+          userName: anyNamed('userName'),
+          userEmail: anyNamed('userEmail'),
+          content: anyNamed('content'),
+          parentCommentId: anyNamed('parentCommentId'),
+        )).thenThrow(Exception('Failed to create'));
+        return CommentBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const CommentCreateRequested(
+          postId: 'post_1',
+          userId: 'user_1',
+          userName: 'Test User',
+          userEmail: 'test@example.com',
+          content: 'New comment',
+        ),
+      ),
+      expect: () => [
+        const CommentLoading(),
+        const CommentError(message: 'Exception: Failed to create'),
+      ],
+    );
+
+    blocTest<CommentBloc, CommentState>(
       'handles delete when comments list is empty without crashing',
       build: () {
         when(mockRepository.deleteComment(any))
@@ -122,6 +150,22 @@ void main() {
           'comments length',
           0,
         ),
+      ],
+    );
+
+    blocTest<CommentBloc, CommentState>(
+      'emits [CommentLoading, CommentError] when deleteComment fails',
+      build: () {
+        when(mockRepository.deleteComment(any))
+            .thenThrow(Exception('Failed to delete'));
+        return CommentBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const CommentDeleteRequested(commentId: 'comment_1'),
+      ),
+      expect: () => [
+        const CommentLoading(),
+        const CommentError(message: 'Exception: Failed to delete'),
       ],
     );
 
