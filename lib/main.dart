@@ -19,10 +19,15 @@ void main() async {
   
   // Initialize environment variables
   await EnvService.initialize();
-  
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  // In integration tests the app's main() may be invoked multiple times
+  // within the same process. Guard against re-initializing Firebase to
+  // avoid [core/duplicate-app] errors.
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   runApp(const EdWiseApp());
 }
 
