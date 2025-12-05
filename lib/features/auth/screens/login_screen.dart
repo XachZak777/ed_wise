@@ -35,12 +35,15 @@ class _LoginScreenState extends State<LoginScreen> {
         if (state is AuthAuthenticated) {
           context.go('/home');
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Login failed: ${state.message}'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          // Only show error if it's not a password reset (handled separately)
+          if (!state.message.contains('Password reset')) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Login failed: ${state.message}'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
         }
       },
       child: Scaffold(
@@ -126,7 +129,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _handleForgotPassword,
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Login Button
                   BlocBuilder<AuthBloc, AuthState>(
@@ -206,5 +219,64 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
     }
+  }
+
+  void _handleForgotPassword() {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your email address first'),
+          backgroundColor: AppTheme.warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (!_emailController.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address'),
+          backgroundColor: AppTheme.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final email = _emailController.text.trim();
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Text(
+          'A password reset email will be sent to:\n\n$email',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<AuthBloc>().add(
+                    AuthPasswordResetRequested(email: email),
+                  );
+              // Show success message immediately (email is sent even if user doesn't exist)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'If an account exists, a password reset email has been sent. Please check your inbox.',
+                  ),
+                  backgroundColor: AppTheme.successColor,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            },
+            child: const Text('Send Reset Email'),
+          ),
+        ],
+      ),
+    );
   }
 }

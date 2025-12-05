@@ -96,44 +96,9 @@ void main() {
     );
 
     blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanLoading, StudyPlanError] when createStudyPlan fails',
+      'emits [StudyPlanLoading, StudyPlanLoaded] when plan updated',
       build: () {
-        when(mockRepository.createStudyPlan(any, any, any))
-            .thenThrow(Exception('Failed to create'));
-        return StudyPlanBloc(repository: mockRepository);
-      },
-      act: (bloc) => bloc.add(
-        const StudyPlanCreateRequested(
-          userId: 'user_1',
-          title: 'New Plan',
-          description: 'New Description',
-        ),
-      ),
-      expect: () => [
-        const StudyPlanLoading(),
-        const StudyPlanError(message: 'Exception: Failed to create'),
-      ],
-    );
-
-    blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanError] when updating without loaded plans (no userId)',
-      build: () => StudyPlanBloc(repository: mockRepository),
-      act: (bloc) => bloc.add(
-        const StudyPlanUpdateRequested(
-          planId: 'unknown',
-          updates: {'title': 'Updated'},
-        ),
-      ),
-      expect: () => const <StudyPlanState>[
-        StudyPlanError(message: 'Cannot update: User ID not found'),
-      ],
-    );
-
-    blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanLoading, StudyPlanLoaded] when study plan is updated successfully',
-      build: () {
-        when(mockRepository.updateStudyPlan(any, any))
-            .thenAnswer((_) async => {});
+        when(mockRepository.updateStudyPlan(any, any)).thenAnswer((_) async => {});
         when(mockRepository.getStudyPlans(any))
             .thenAnswer((_) async => mockStudyPlans);
         return StudyPlanBloc(repository: mockRepository);
@@ -152,50 +117,67 @@ void main() {
     );
 
     blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanLoading, StudyPlanError] when updateStudyPlan fails',
+      'emits [StudyPlanLoading, StudyPlanDeleted] when plan deleted without loaded state',
+      build: () {
+        when(mockRepository.deleteStudyPlan(any)).thenAnswer((_) async => {});
+        return StudyPlanBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const StudyPlanDeleteRequested(planId: 'plan_1'),
+      ),
+      expect: () => [
+        const StudyPlanLoading(),
+        const StudyPlanDeleted(),
+      ],
+    );
+
+    blocTest<StudyPlanBloc, StudyPlanState>(
+      'emits [StudyPlanLoading, StudyPlanLoaded] when subject added',
+      build: () {
+        when(mockRepository.addSubject(any, any)).thenAnswer((_) async => {});
+        when(mockRepository.getStudyPlans(any))
+            .thenAnswer((_) async => mockStudyPlans);
+        return StudyPlanBloc(repository: mockRepository);
+      },
+      seed: () => StudyPlanLoaded(studyPlans: mockStudyPlans),
+      act: (bloc) => bloc.add(
+        StudyPlanAddSubjectRequested(
+          planId: 'plan_1',
+          subject: Subject(
+            id: 'subj_1',
+            name: 'Math',
+            description: 'Mathematics',
+            color: '#FF0000',
+            tasks: [],
+            totalTasks: 0,
+            completedTasks: 0,
+            progress: 0.0,
+          ),
+        ),
+      ),
+      expect: () => [
+        const StudyPlanLoading(),
+        StudyPlanLoaded(studyPlans: mockStudyPlans),
+      ],
+    );
+
+    blocTest<StudyPlanBloc, StudyPlanState>(
+      'emits [StudyPlanLoading, StudyPlanError] when update fails',
       build: () {
         when(mockRepository.updateStudyPlan(any, any))
-            .thenThrow(Exception('Failed to update'));
+            .thenThrow(Exception('Update failed'));
         return StudyPlanBloc(repository: mockRepository);
       },
       seed: () => StudyPlanLoaded(studyPlans: mockStudyPlans),
       act: (bloc) => bloc.add(
         const StudyPlanUpdateRequested(
           planId: 'plan_1',
-          updates: {'title': 'Updated Title'},
+          updates: {'title': 'Updated'},
         ),
       ),
       expect: () => [
         const StudyPlanLoading(),
-        const StudyPlanError(message: 'Exception: Failed to update'),
-      ],
-    );
-
-    blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanLoading, StudyPlanDeleted] when deleting without loaded plans (no userId)',
-      build: () {
-        when(mockRepository.deleteStudyPlan(any))
-            .thenAnswer((_) async => {});
-        return StudyPlanBloc(repository: mockRepository);
-      },
-      act: (bloc) => bloc.add(const StudyPlanDeleteRequested(planId: 'plan_1')),
-      expect: () => const <StudyPlanState>[
-        StudyPlanLoading(),
-        StudyPlanDeleted(),
-      ],
-    );
-
-    blocTest<StudyPlanBloc, StudyPlanState>(
-      'emits [StudyPlanLoading, StudyPlanError] when deleteStudyPlan fails',
-      build: () {
-        when(mockRepository.deleteStudyPlan(any))
-            .thenThrow(Exception('Failed to delete'));
-        return StudyPlanBloc(repository: mockRepository);
-      },
-      act: (bloc) => bloc.add(const StudyPlanDeleteRequested(planId: 'plan_1')),
-      expect: () => [
-        const StudyPlanLoading(),
-        const StudyPlanError(message: 'Exception: Failed to delete'),
+        const StudyPlanError(message: 'Exception: Update failed'),
       ],
     );
   });

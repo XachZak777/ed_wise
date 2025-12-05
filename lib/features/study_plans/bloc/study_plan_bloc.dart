@@ -54,13 +54,29 @@ class StudyPlanBloc extends Bloc<StudyPlanEvent, StudyPlanState> {
     StudyPlanUpdateRequested event,
     Emitter<StudyPlanState> emit,
   ) async {
+    // Save current state before updating
+    final currentState = state;
+    String? userId;
+    
+    if (currentState is StudyPlanLoaded) {
+      userId = currentState.studyPlans
+          .firstWhere(
+            (p) => p.id == event.planId,
+            orElse: () => currentState.studyPlans.first,
+          )
+          .userId;
+    }
+    
+    if (userId == null) {
+      emit(StudyPlanError(message: 'Cannot update: User ID not found'));
+      return;
+    }
+    
     emit(const StudyPlanLoading());
     try {
       await _repository.updateStudyPlan(event.planId, event.updates);
       // Reload to get updated plan
-      final plans = await _repository.getStudyPlans(
-        (state as StudyPlanLoaded).studyPlans.firstWhere((p) => p.id == event.planId).userId,
-      );
+      final plans = await _repository.getStudyPlans(userId);
       emit(StudyPlanLoaded(studyPlans: plans));
     } catch (e) {
       emit(StudyPlanError(message: e.toString()));

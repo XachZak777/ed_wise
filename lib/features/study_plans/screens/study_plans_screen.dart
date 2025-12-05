@@ -182,21 +182,32 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
   }
 
   void _showAddStudyPlanDialog() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to create a study plan'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
-      builder: (context) => AddStudyPlanDialog(
-        onSave: (title, description) async {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
-            context.read<StudyPlanBloc>().add(
-                  StudyPlanCreateRequested(
-                    userId: user.uid,
-                    title: title,
-                    description: description,
-                  ),
-                );
+      builder: (dialogContext) => BlocListener<StudyPlanBloc, StudyPlanState>(
+        listenWhen: (previous, current) {
+          // Only react if we transitioned from Loading to Loaded (creation completed)
+          // or if there's an error after loading started
+          return (previous is StudyPlanLoading && current is StudyPlanLoaded) ||
+              (previous is StudyPlanLoading && current is StudyPlanError) ||
+              (previous is StudyPlanCreated && current is StudyPlanLoaded);
+        },
+        listener: (context, state) {
+          if (state is StudyPlanLoaded) {
+            // Study plan created and loaded successfully
             if (mounted) {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Study plan created successfully'),
@@ -204,8 +215,29 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
                 ),
               );
             }
+          } else if (state is StudyPlanError) {
+            // Error occurred
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to create study plan: ${state.message}'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
           }
         },
+        child: AddStudyPlanDialog(
+          onSave: (title, description) {
+            context.read<StudyPlanBloc>().add(
+                  StudyPlanCreateRequested(
+                    userId: user.uid,
+                    title: title,
+                    description: description,
+                  ),
+                );
+          },
+        ),
       ),
     );
   }
@@ -213,25 +245,42 @@ class _StudyPlansScreenState extends State<StudyPlansScreen> {
   void _showEditStudyPlanDialog(StudyPlan plan) {
     showDialog(
       context: context,
-      builder: (context) => EditStudyPlanDialog(
-        studyPlan: plan,
-        onSave: (updates) {
-          context.read<StudyPlanBloc>().add(
-                StudyPlanUpdateRequested(
-                  planId: plan.id,
-                  updates: updates,
+      builder: (dialogContext) => BlocListener<StudyPlanBloc, StudyPlanState>(
+        listener: (context, state) {
+          if (state is StudyPlanLoaded) {
+            // Update completed, close dialog and show success message
+            if (mounted) {
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Study plan updated successfully'),
+                  backgroundColor: AppTheme.successColor,
                 ),
               );
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Study plan updated successfully'),
-                backgroundColor: AppTheme.successColor,
-              ),
-            );
+            }
+          } else if (state is StudyPlanError) {
+            // Error occurred
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to update study plan: ${state.message}'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
           }
         },
+        child: EditStudyPlanDialog(
+          studyPlan: plan,
+          onSave: (updates) {
+            context.read<StudyPlanBloc>().add(
+                  StudyPlanUpdateRequested(
+                    planId: plan.id,
+                    updates: updates,
+                  ),
+                );
+          },
+        ),
       ),
     );
   }

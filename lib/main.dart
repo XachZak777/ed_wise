@@ -16,18 +16,36 @@ import 'features/ai_agent/bloc/ai_agent_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize environment variables
+
   await EnvService.initialize();
 
-  // In integration tests the app's main() may be invoked multiple times
-  // within the same process. Guard against re-initializing Firebase to
-  // avoid [core/duplicate-app] errors.
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // Initialize Firebase only if not already initialized
+  // On Android, Firebase may auto-initialize if google-services.json exists
+  try {
+    // Check if Firebase is already initialized
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    // Handle duplicate-app error (Firebase may already be initialized on Android)
+    final errorMessage = e.toString();
+    
+    // Check for duplicate-app error or if Firebase is already initialized
+    if (errorMessage.contains('duplicate-app') || 
+        errorMessage.contains('already exists') ||
+        Firebase.apps.isNotEmpty) {
+      // Firebase is already initialized (likely by Android auto-init)
+      // This is fine, we can continue
+      debugPrint('Firebase already initialized, continuing...');
+    } else {
+      // Real initialization error, re-throw
+      debugPrint('Firebase initialization failed: $e');
+      rethrow;
+    }
   }
+
   runApp(const EdWiseApp());
 }
 
