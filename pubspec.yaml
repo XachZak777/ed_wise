@@ -45,7 +45,8 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.3
   firebase_storage: ^12.3.2
-  google_sign_in: ^6.2.1
+  # Pin to google_sign_in 6.x API that matches our AuthRepository implementation
+  google_sign_in: 6.3.0
   
   # HTTP & API
   http: ^1.2.2
