@@ -101,8 +101,9 @@ class FirebaseAuthRepository implements AuthRepository {
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      // In newer versions of google_sign_in, accessToken is no longer exposed.
+      // For Firebase Auth sign-in we only need the ID token.
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
