@@ -1,39 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:ed_wise/main.dart' as app;
+
+import 'app_robot.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  const robot = AppRobot();
+
   group('Authentication Flow', () {
-    testWidgets('User can register and login', (WidgetTester tester) async {
-      app.main();
+    testWidgets('Login screen shows core elements on app start', (tester) async {
+      await robot.launchApp(tester);
+
+      // Basic structure
+      expect(find.byType(Form), findsOneWidget);
+      expect(find.byType(TextFormField), findsNWidgets(2));
+
+      // Auth-specific actions
+      expect(robot.loginButton, findsOneWidget);
+      expect(robot.loginToRegisterLink, findsOneWidget);
+      expect(robot.googleSignInText, findsWidgets);
+    });
+
+    testWidgets('User can navigate from login to register and back', (tester) async {
+      await robot.launchApp(tester);
+
+      // Go to register
+      await robot.goToRegisterFromLogin(tester);
+
+      // Register screen should have 4 fields and a primary action button
+      expect(find.byType(TextFormField), findsNWidgets(4));
+      expect(robot.registerCreateAccountButton, findsOneWidget);
+      expect(robot.registerToLoginLink, findsOneWidget);
+
+      // Go back to login
+      await robot.goToLoginFromRegister(tester);
+
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expect(robot.loginButton, findsOneWidget);
+      expect(robot.loginToRegisterLink, findsOneWidget);
+    });
+
+    testWidgets('Submitting empty login form shows validation errors', (tester) async {
+      await robot.launchApp(tester);
+
+      await tester.tap(robot.loginButton);
       await tester.pumpAndSettle();
 
-      // Find and tap register button
-      final registerButton = find.text('Register');
-      expect(registerButton, findsOneWidget);
-      await tester.tap(registerButton);
+      expect(find.text('Please enter your email'), findsOneWidget);
+      expect(find.text('Please enter your password'), findsOneWidget);
+    });
+
+    testWidgets('Submitting empty register form shows validation errors', (tester) async {
+      await robot.launchApp(tester);
+      await robot.goToRegisterFromLogin(tester);
+
+      await tester.tap(robot.registerCreateAccountButton);
       await tester.pumpAndSettle();
 
-      // Fill registration form
-      final nameField = find.byType(TextFormField).at(0);
-      final emailField = find.byType(TextFormField).at(1);
-      final passwordField = find.byType(TextFormField).at(2);
+      expect(find.text('Please enter your full name'), findsOneWidget);
+      expect(find.text('Please enter your email'), findsOneWidget);
+      expect(find.text('Please enter your password'), findsOneWidget);
+      expect(find.text('Please confirm your password'), findsOneWidget);
+    });
 
-      await tester.enterText(nameField, 'Test User');
-      await tester.enterText(emailField, 'test@example.com');
-      await tester.enterText(passwordField, 'password123');
-      await tester.pumpAndSettle();
+    testWidgets('Google sign-in button is visible on login screen', (tester) async {
+      await robot.launchApp(tester);
 
-      // Submit registration
-      final submitButton = find.text('Register');
-      await tester.tap(submitButton);
-      await tester.pumpAndSettle();
-
-      // Verify navigation to home (or appropriate screen)
-      // This will depend on your actual app flow
+      expect(robot.googleSignInText, findsWidgets);
     });
   });
 }

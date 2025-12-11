@@ -14,6 +14,7 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
     on<CommentDeleteRequested>(_onDeleteRequested);
     on<CommentUpvoteRequested>(_onUpvoteRequested);
     on<CommentDownvoteRequested>(_onDownvoteRequested);
+    on<CommentEditRequested>(_onEditRequested);
   }
 
   Future<void> _onLoadRequested(
@@ -125,6 +126,24 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
           final comments = await _repository.getComments(postId);
           emit(CommentLoaded(comments: comments));
         }
+      }
+    } catch (e) {
+      emit(CommentError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onEditRequested(
+    CommentEditRequested event,
+    Emitter<CommentState> emit,
+  ) async {
+    emit(const CommentLoading());
+    try {
+      await _repository.updateComment(event.commentId, event.content);
+      // Reload comments
+      if (state is CommentLoaded) {
+        final postId = (state as CommentLoaded).comments.first.postId;
+        final comments = await _repository.getComments(postId);
+        emit(CommentLoaded(comments: comments));
       }
     } catch (e) {
       emit(CommentError(message: e.toString()));

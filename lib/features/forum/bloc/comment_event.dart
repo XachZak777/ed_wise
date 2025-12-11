@@ -73,3 +73,16 @@ class CommentDownvoteRequested extends CommentEvent {
   List<Object?> get props => [commentId, userId];
 }
 
+class CommentEditRequested extends CommentEvent {
+  final String commentId;
+  final String content;
+
+  const CommentEditRequested({
+    required this.commentId,
+    required this.content,
+  });
+
+  @override
+  List<Object?> get props => [commentId, content];
+}
+
